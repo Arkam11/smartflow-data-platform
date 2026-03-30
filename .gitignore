@@ -1,0 +1,42 @@
+# Virtual environment - never commit this
+venv/
+.venv/
+
+# Secrets - NEVER commit real credentials
+.env
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Data files - too large for GitHub
+data/raw/*.csv
+data/raw/*.json
+data/processed/*.parquet
+*.parquet
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# dbt
+dbt/target/
+dbt/logs/
+dbt/.user.yml
+
+# Great Expectations
+great_expectations/uncommitted/
+
+# Airflow
+airflow.db
+airflow.cfg
+logs/
+
+# VS Code
+.vscode/settings.json
+
+# OS files
+.DS_Store
+Thumbs.db
