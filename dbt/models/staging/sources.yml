@@ -1,0 +1,33 @@
+version: 2
+
+sources:
+  - name: silver
+    schema: silver
+    description: "Cleaned and validated Silver layer tables"
+    tables:
+      - name: orders
+        description: "Clean orders with timestamps and derived columns"
+      - name: customers
+        description: "Standardised customer records"
+      - name: order_items
+        description: "Order line items with prices in BRL"
+      - name: reviews
+        description: "Customer reviews with sentiment annotations"
+      - name: exchange_rates
+        description: "Latest USD exchange rates"
+
+  - name: ml
+    schema: ml
+    description: "ML model outputs"
+    tables:
+      - name: churn_scores
+        description: "Customer churn probability scores"
+      - name: feature_store
+        description: "Engineered ML features per customer"
+
+  - name: bronze
+    schema: bronze
+    description: "Raw ingested data"
+    tables:
+      - name: raw_products
+        description: "Raw product catalogue"
