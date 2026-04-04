@@ -1,0 +1,50 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: "Customer dimension with churn scores"
+    columns:
+      - name: customer_key
+        description: "Primary key"
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_product
+    description: "Product dimension"
+    columns:
+      - name: product_key
+        description: "Primary key"
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_date
+    description: "Date dimension spanning 2016-2019"
+    columns:
+      - name: date_key
+        description: "Primary key in YYYYMMDD format"
+        data_tests:
+          - unique
+          - not_null
+
+  - name: fact_orders
+    description: "Fact table — one row per order line item"
+    columns:
+      - name: fact_id
+        description: "Surrogate primary key"
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_key
+        description: "Foreign key to dim_customer"
+        data_tests:
+          - not_null          
+      - name: date_key
+        description: "Foreign key to dim_date"
+        data_tests:
+          - not_null
+      - name: total_amount_usd
+        description: "Total order value in USD"
+        data_tests:
+          - not_null
