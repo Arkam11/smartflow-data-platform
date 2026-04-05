@@ -47,3 +47,8 @@ dbt/target/
 dbt/logs/
 dbt/.user.yml
 dbt/dbt_packages/
+airflow/logs/
+airflow/airflow.db
+airflow/airflow.cfg
+airflow/webserver_config.py
+airflow/standalone_admin_password.txt
