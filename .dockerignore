@@ -1,0 +1,52 @@
+# Virtual environment — never copy this, container has its own
+venv/
+.venv/
+
+# Secrets — never copy into Docker image
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Large data files — mount as volumes instead
+data/raw/*.csv
+data/raw/*.json
+data/processed/
+*.parquet
+
+# JDBC driver — downloaded during build
+drivers/
+
+# Git history
+.git/
+.gitignore
+
+# Trained ML models — mount as volumes
+models/*.pkl
+
+# Jupyter notebooks
+notebooks/
+*.ipynb
+.ipynb_checkpoints/
+
+# dbt generated files
+dbt/target/
+dbt/logs/
+dbt/.user.yml
+
+# Airflow generated files
+airflow/logs/
+airflow/airflow.db
+airflow/airflow.cfg
+airflow/webserver_config.py
+
+# Test cache
+.pytest_cache/
+.coverage
+
+# OS files
+.DS_Store
+Thumbs.db

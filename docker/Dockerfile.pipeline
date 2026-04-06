@@ -1,0 +1,79 @@
+# Start from the official Python 3.10 slim image
+# "slim" means minimal Ubuntu with just Python — smaller than the full image
+FROM python:3.10-slim
+
+# Prevent Python from writing .pyc files (not needed in containers)
+# and ensure stdout/stderr are not buffered (so logs appear immediately)
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# ================================================================
+# SYSTEM PACKAGES
+# We need Java 11 for PySpark, wget for downloading JDBC driver,
+# and a few other utilities
+# ================================================================
+RUN apt-get update && apt-get install -y \
+    default-jdk \
+    wget \
+    curl \
+    git \
+    procps \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set JAVA_HOME — Spark needs this environment variable
+# to find the JVM when it starts
+ENV JAVA_HOME=/usr/lib/jvm/default-java
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+# ================================================================
+# PYTHON DEPENDENCIES
+# Copy requirements first — before copying code.
+# Why? Docker caches layers. If only your code changes but not
+# requirements, Docker reuses the cached pip install layer.
+# This makes rebuilds much faster.
+# ================================================================
+WORKDIR /app
+
+COPY docker/requirements-docker.txt .
+
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements-docker.txt
+
+# ================================================================
+# POSTGRESQL JDBC DRIVER
+# Download it directly during build — no need to copy from host.
+# The driver is placed in /app/drivers/ which matches the path
+# in your spark_session.py
+# ================================================================
+RUN mkdir -p /app/drivers && \
+    wget -q -O /app/drivers/postgresql-42.7.3.jar \
+    https://jdbc.postgresql.org/download/postgresql-42.7.3.jar
+
+# ================================================================
+# PROJECT CODE
+# Copy everything except what is listed in .dockerignore
+# (venv, data files, .env, __pycache__ etc.)
+# Copy configuration files
+# ================================================================
+COPY src/ ./src/
+COPY dbt/ ./dbt/
+COPY tests/ ./tests/
+COPY airflow/dags/ ./airflow/dags/
+COPY pytest.ini .
+
+
+# ================================================================
+# ENVIRONMENT
+# These are default values — overridden at runtime by docker-compose
+# via the env_file or environment sections
+# ================================================================
+ENV PYTHONPATH=/app
+ENV SPARK_MASTER=local[*]
+
+# ================================================================
+# DEFAULT COMMAND
+# Run the full pipeline when the container starts.
+# This can be overridden when running the container.
+# ================================================================
+CMD ["python", "-m", "src.ingestion.csv_ingester"]

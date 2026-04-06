@@ -2,9 +2,6 @@ pyspark==4.1.1
 pandas==2.3.3
 sqlalchemy==2.0.40
 psycopg2-binary==2.9.10
-great-expectations==1.4.5
-dbt-core==1.9.4
-dbt-postgres==1.9.3
 scikit-learn==1.7.2
 fastapi==0.115.12
 uvicorn==0.34.2
@@ -13,4 +10,5 @@ pytest==8.3.5
 pytest-cov==6.1.0
 python-dotenv==1.1.0
 requests==2.32.3
-apache-airflow==3.1.8
+dbt-core==1.9.4
+anthropic==0.51.0
