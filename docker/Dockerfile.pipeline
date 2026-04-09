@@ -62,6 +62,9 @@ COPY tests/ ./tests/
 COPY airflow/dags/ ./airflow/dags/
 COPY pytest.ini .
 
+# Copy dbt profiles for Docker environment
+COPY docker/dbt-profiles.yml /root/.dbt/profiles.yml
+RUN mkdir -p /root/.dbt
 
 # ================================================================
 # ENVIRONMENT

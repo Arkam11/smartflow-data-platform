@@ -1,0 +1,114 @@
+# version: '3.8'
+
+networks:
+  smartflow-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
+  airflow-logs:
+    driver: local
+
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: smartflow-postgres
+    restart: unless-stopped
+    networks:
+      - smartflow-network
+    environment:
+      POSTGRES_DB: smartflow
+      POSTGRES_USER: smartflow_user
+      POSTGRES_PASSWORD: smartflow_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartflow_user -d smartflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  pipeline:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.pipeline
+    image: smartflow-pipeline:latest
+    container_name: smartflow-pipeline
+    restart: "no"
+    networks:
+      - smartflow-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      PYTHONPATH: /app
+      JAVA_HOME: /usr/lib/jvm/default-java
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    command: >
+      bash -c "
+        echo 'Running SmartFlow pipeline...' &&
+        python src/ingestion/csv_ingester.py &&
+        python src/ingestion/api_ingester.py &&
+        python src/etl/transform.py &&
+        python src/etl/data_quality.py &&
+        python src/ml/feature_engineering.py &&
+        python src/ml/churn_model.py &&
+        cd /app/dbt && dbt run --profiles-dir /root/.dbt &&
+        echo 'Pipeline complete!'
+      "
+
+  airflow:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.airflow
+    image: smartflow-airflow:latest
+    container_name: smartflow-airflow
+    restart: unless-stopped
+    networks:
+      - smartflow-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://smartflow_user:smartflow_pass@postgres:5432/airflow_db
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__WEBSERVER__SECRET_KEY: smartflow-secret-key-change-in-prod
+      AIRFLOW_HOME: /opt/airflow
+      PYTHONPATH: /opt/airflow
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - airflow-logs:/opt/airflow/logs
+      - ./src:/opt/airflow/src
+      - ./dbt:/opt/airflow/dbt
+      - ./data:/opt/airflow/data
+    command: >
+      bash -c "
+        airflow db migrate &&
+        airflow users create
+          --username admin
+          --firstname Arkam
+          --lastname Mohammed
+          --role Admin
+          --email m.arkam@ymail.com
+          --password admin123 2>/dev/null || true &&
+        airflow webserver --port 8080 &
+        airflow scheduler
+      "
