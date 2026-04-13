@@ -1,0 +1,232 @@
+name: SmartFlow CI/CD Pipeline
+
+# ================================================================
+# TRIGGERS — when does this workflow run?
+# ================================================================
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+
+# ================================================================
+# JOBS
+# Each job runs on a fresh Ubuntu server in GitHub's cloud
+# ================================================================
+jobs:
+
+  # --------------------------------------------------------------
+  # JOB 1 — Run all tests
+  # This is the most important job — it runs on every push
+  # --------------------------------------------------------------
+  test:
+    name: Run pytest test suite
+    runs-on: ubuntu-latest
+
+    # Service containers — spin up PostgreSQL alongside the tests
+    # This gives tests a real database to connect to
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: smartflow
+          POSTGRES_USER: smartflow_user
+          POSTGRES_PASSWORD: smartflow_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      # Step 1 — Check out your code onto the GitHub server
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2 — Install Python 3.10
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # Step 3 — Cache pip packages
+      # This makes subsequent runs much faster by reusing
+      # previously downloaded packages
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # Step 4 — Install Java for PySpark
+      - name: Set up Java 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      # Step 5 — Install Python dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Step 6 — Download PostgreSQL JDBC driver for Spark
+      - name: Download JDBC driver
+        run: |
+          mkdir -p drivers
+          wget -q -O drivers/postgresql-42.7.3.jar \
+            https://jdbc.postgresql.org/download/postgresql-42.7.3.jar
+
+      # Step 7 — Create .env file for tests
+      # GitHub Actions doesn't have your .env file so we create it
+      # using GitHub Secrets (set up in the next step of this guide)
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          DB_HOST=localhost
+          DB_PORT=5432
+          DB_NAME=smartflow
+          DB_USER=smartflow_user
+          DB_PASSWORD=smartflow_pass
+          EXCHANGE_RATES_API_KEY=${{ secrets.EXCHANGE_RATES_API_KEY }}
+          OPENAI_API_KEY=test_key_not_used_in_unit_tests
+          ANTHROPIC_API_KEY=test_key_not_used_in_unit_tests
+          SPARK_MASTER=local[*]
+          JAVA_HOME=$JAVA_HOME
+          EOF
+
+      # Step 8 — Run the full test suite with coverage
+      - name: Run pytest with coverage
+        run: |
+          pytest tests/ -v \
+            --cov=src \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            -x
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+
+      # Step 9 — Upload coverage report to Codecov
+      # This gives you a coverage badge on your README
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  # --------------------------------------------------------------
+  # JOB 2 — Validate dbt models
+  # Runs after tests pass
+  # --------------------------------------------------------------
+  dbt-validate:
+    name: Validate dbt models
+    runs-on: ubuntu-latest
+    needs: test
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: smartflow
+          POSTGRES_USER: smartflow_user
+          POSTGRES_PASSWORD: smartflow_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dbt
+        run: |
+          pip install dbt-core==1.9.4 dbt-postgres==1.7.19
+
+      - name: Create dbt profiles
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << EOF
+          smartflowDdataPlatform:
+            target: dev
+            outputs:
+              dev:
+                type: postgres
+                host: localhost
+                port: 5432
+                user: smartflow_user
+                password: smartflow_pass
+                dbname: smartflow
+                schema: gold
+                threads: 4
+          EOF
+
+      - name: Create schemas
+        run: |
+          PGPASSWORD=smartflow_pass psql -h localhost -U smartflow_user -d smartflow \
+            -c "CREATE SCHEMA IF NOT EXISTS bronze;
+                CREATE SCHEMA IF NOT EXISTS silver;
+                CREATE SCHEMA IF NOT EXISTS gold;
+                CREATE SCHEMA IF NOT EXISTS ml;"
+
+      - name: Validate dbt project compiles
+        run: |
+          cd dbt
+          dbt parse
+          dbt compile
+        env:
+          DBT_PROFILES_DIR: /home/runner/.dbt
+
+  # --------------------------------------------------------------
+  # JOB 3 — Build Docker image
+  # Runs only on pushes to main (not on pull requests)
+  # Verifies the Dockerfile still builds correctly
+  # --------------------------------------------------------------
+  docker-build:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build pipeline image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.pipeline
+          push: false
+          tags: smartflow-pipeline:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify image was built
+        run: |
+          docker run --rm smartflow-pipeline:latest python -c "
+          import pyspark, pandas, sklearn
+          print('PySpark:', pyspark.__version__)
+          print('Pandas:', pandas.__version__)
+          print('All imports OK')
+          "

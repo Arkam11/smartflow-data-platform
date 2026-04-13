@@ -1,5 +1,8 @@
 # SmartFlow Data Platform
 
+![CI/CD](https://github.com/Arkam11/smartflow-data-platform/actions/workflows/ci_cd.yml/badge.svg)
+
+
 An end-to-end data engineering platform built with modern tools and best practices.
 
 ## What this project covers
