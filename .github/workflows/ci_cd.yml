@@ -66,10 +66,10 @@ jobs:
             ${{ runner.os }}-pip-
 
       # Step 4 — Install Java for PySpark
-      - name: Set up Java 11
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
-          java-version: '11'
+          java-version: '17'
           distribution: 'temurin'
 
       # Step 5 — Install Python dependencies
