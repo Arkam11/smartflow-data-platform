@@ -11,4 +11,5 @@ pytest-cov==6.1.0
 python-dotenv==1.1.0
 requests==2.32.3
 dbt-core==1.9.4
-anthropic==0.51.0dbt-postgres==1.7.19
+anthropic==0.51.0
+dbt-postgres==1.7.19
