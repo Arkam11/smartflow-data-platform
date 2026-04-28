@@ -230,3 +230,12 @@ jobs:
           print('Pandas:', pandas.__version__)
           print('All imports OK')
           "
+
+
+sed -i 's/actions\/checkout@v4/actions\/checkout@v4.2.2/g' .github/workflows/ci_cd.yml
+sed -i 's/actions\/setup-python@v5/actions\/setup-python@v5.6.0/g' .github/workflows/ci_cd.yml
+sed -i 's/actions\/cache@v4/actions\/cache@v4.2.3/g' .github/workflows/ci_cd.yml
+sed -i 's/actions\/setup-java@v4/actions\/setup-java@v4.7.0/g' .github/workflows/ci_cd.yml
+sed -i 's/docker\/setup-buildx-action@v3/docker\/setup-buildx-action@v3.10.0/g' .github/workflows/ci_cd.yml
+sed -i 's/docker\/build-push-action@v5/docker\/build-push-action@v6.15.0/g' .github/workflows/ci_cd.yml
+sed -i 's/codecov\/codecov-action@v4/codecov\/codecov-action@v5.4.2/g' .github/workflows/ci_cd.yml          
