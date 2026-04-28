@@ -44,13 +44,13 @@ jobs:
           --health-retries 5
 
     steps:
-      # Step 1 — Check out your code onto the GitHub server
+      # Step 1 — Check out the code onto the GitHub server
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       # Step 2 — Install Python 3.10
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.6.0
         with:
           python-version: '3.10'
 
@@ -58,7 +58,7 @@ jobs:
       # This makes subsequent runs much faster by reusing
       # previously downloaded packages
       - name: Cache pip packages
-        uses: actions/cache@v4
+        uses: actions/cache@v4.2.3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
@@ -66,10 +66,10 @@ jobs:
             ${{ runner.os }}-pip-
 
       # Step 4 — Install Java for PySpark
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
+      - name: Set up Java 11
+        uses: actions/setup-java@v4.7.0
         with:
-          java-version: '17'
+          java-version: '11'
           distribution: 'temurin'
 
       # Step 5 — Install Python dependencies
@@ -86,7 +86,7 @@ jobs:
             https://jdbc.postgresql.org/download/postgresql-42.7.3.jar
 
       # Step 7 — Create .env file for tests
-      # GitHub Actions doesn't have your .env file so we create it
+      # GitHub Actions doesn't have .env file so we create it
       # using GitHub Secrets (set up in the next step of this guide)
       - name: Create .env file
         run: |
@@ -106,18 +106,14 @@ jobs:
       # Step 8 — Run the full test suite with coverage
       - name: Run pytest with coverage
         run: |
-          pytest tests/ -v \
-            --cov=src \
-            --cov-report=xml \
-            --cov-report=term-missing \
-            -x
+          pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing -x
         env:
           PYTHONPATH: ${{ github.workspace }}
 
       # Step 9 — Upload coverage report to Codecov
-      # This gives you a coverage badge on your README
+      # This gives a coverage badge on README
       - name: Upload coverage report
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5.4.2
         if: always()
         with:
           file: ./coverage.xml
@@ -149,16 +145,16 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.6.0
         with:
           python-version: '3.10'
 
       - name: Install dbt
         run: |
-          pip install dbt-core==1.9.4 dbt-postgres
+          pip install dbt-core==1.9.4 dbt-postgres==1.9.4
 
       - name: Create dbt profiles
         run: |
@@ -207,35 +203,23 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v3.10.0
 
       - name: Build pipeline image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6.15.0
         with:
           context: .
           file: docker/Dockerfile.pipeline
           push: false
+          load: true
           tags: smartflow-pipeline:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Verify image was built
         run: |
-          docker run --rm smartflow-pipeline:latest python -c "
-          import pyspark, pandas, sklearn
-          print('PySpark:', pyspark.__version__)
-          print('Pandas:', pandas.__version__)
-          print('All imports OK')
-          "
-
-
-sed -i 's/actions\/checkout@v4/actions\/checkout@v4.2.2/g' .github/workflows/ci_cd.yml
-sed -i 's/actions\/setup-python@v5/actions\/setup-python@v5.6.0/g' .github/workflows/ci_cd.yml
-sed -i 's/actions\/cache@v4/actions\/cache@v4.2.3/g' .github/workflows/ci_cd.yml
-sed -i 's/actions\/setup-java@v4/actions\/setup-java@v4.7.0/g' .github/workflows/ci_cd.yml
-sed -i 's/docker\/setup-buildx-action@v3/docker\/setup-buildx-action@v3.10.0/g' .github/workflows/ci_cd.yml
-sed -i 's/docker\/build-push-action@v5/docker\/build-push-action@v6.15.0/g' .github/workflows/ci_cd.yml
-sed -i 's/codecov\/codecov-action@v4/codecov\/codecov-action@v5.4.2/g' .github/workflows/ci_cd.yml          
+          docker run --rm smartflow-pipeline:latest python -c "import pyspark, pandas, sklearn; print('PySpark:', pyspark.__version__); print('All imports OK')"
+WORKFLOW
