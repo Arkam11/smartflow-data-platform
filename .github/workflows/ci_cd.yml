@@ -123,7 +123,7 @@ jobs:
 
       - name: Install dbt
         run: |
-          pip install dbt-core==1.9.4 dbt-postgres==1.9.4
+          pip install dbt-core==1.9.4 "dbt-postgres>=1.7.0,<2.0.0"
 
       - name: Create dbt profiles
         run: |
