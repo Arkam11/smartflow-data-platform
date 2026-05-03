@@ -233,14 +233,13 @@ def build_customer_features(data: dict) -> pd.DataFrame:
 
 
 def save_feature_store(features: pd.DataFrame, engine):
-    """
-    Save the feature store to PostgreSQL.
-    This becomes the single source of truth for ML features.
-    """
+    """Save the feature store to PostgreSQL with CASCADE drop."""
     logger.info("Saving feature store to PostgreSQL...")
 
+    from sqlalchemy import text
     with engine.connect() as conn:
         conn.execute(text("CREATE SCHEMA IF NOT EXISTS ml"))
+        conn.execute(text("DROP TABLE IF EXISTS ml.feature_store CASCADE"))
         conn.commit()
 
     features.to_sql(
@@ -252,7 +251,6 @@ def save_feature_store(features: pd.DataFrame, engine):
         chunksize=1000
     )
     logger.info(f"Saved ml.feature_store — {len(features):,} rows")
-
 
 def run_feature_engineering():
     engine = get_engine()

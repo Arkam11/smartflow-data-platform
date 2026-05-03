@@ -111,23 +111,29 @@ def read_bronze_table(spark: SparkSession, table_name: str):
 def write_silver_table(df, table_name: str, mode: str = "overwrite"):
     """
     Write a Spark DataFrame to the Silver schema in PostgreSQL.
-
-    mode="overwrite" means: drop and recreate the Silver table each run.
-    This is correct for Silver — we always rebuild from Bronze.
-    Unlike Bronze where we append API data, Silver is always fully rebuilt.
-
-    Args:
-        df         : Spark DataFrame to write
-        table_name : target table name inside silver schema
-        mode       : "overwrite" (default) or "append"
+    Drops with CASCADE first to handle dependent dbt views.
     """
     full_table = f"silver.{table_name}"
     logger.info(f"Writing to Silver table: {full_table} (mode={mode})")
 
+    # Drop with CASCADE to remove dependent dbt views before overwriting
+    # dbt recreates these views automatically when you run dbt run
+    from sqlalchemy import create_engine, text
+    import os
+    engine = create_engine(
+        f"postgresql+psycopg2://"
+        f"{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
+        f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}"
+        f"/{os.getenv('DB_NAME')}"
+    )
+    with engine.connect() as conn:
+        conn.execute(text(f"DROP TABLE IF EXISTS {full_table} CASCADE"))
+        conn.commit()
+
     df.write.jdbc(
         url=JDBC_URL,
         table=full_table,
-        mode=mode,
+        mode="overwrite",
         properties=JDBC_PROPERTIES
     )
 

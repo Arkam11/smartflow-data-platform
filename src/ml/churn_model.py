@@ -230,8 +230,14 @@ def score_all_customers(model, features: pd.DataFrame) -> pd.DataFrame:
 
 
 def save_scores(scores: pd.DataFrame, engine):
-    """Save customer churn scores back to PostgreSQL."""
+    """Save customer churn scores back to PostgreSQL with CASCADE drop."""
     logger.info("Saving churn scores to ml.churn_scores...")
+
+    # Drop with CASCADE first to remove dependent dbt views
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS ml.churn_scores CASCADE"))
+        conn.commit()
 
     scores.to_sql(
         name="churn_scores",
@@ -242,7 +248,6 @@ def save_scores(scores: pd.DataFrame, engine):
         chunksize=1000
     )
     logger.info(f"Saved {len(scores):,} customer scores to ml.churn_scores")
-
 
 def run_churn_pipeline():
     """Run the complete churn prediction pipeline end to end."""

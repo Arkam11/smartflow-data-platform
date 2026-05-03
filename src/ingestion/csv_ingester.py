@@ -47,15 +47,22 @@ def load_csv_to_bronze(file_path: str, table_name: str, engine):
 
     logger.info(f"  Rows: {len(df):,}  |  Columns: {list(df.columns)}")
 
+    # Drop table with CASCADE first to handle dependent views
+    with engine.connect() as conn:
+        conn.execute(text(
+            f"DROP TABLE IF EXISTS bronze.{table_name} CASCADE"
+        ))
+        conn.commit()
+
     df.to_sql(
         name=table_name,
         con=engine,
         schema='bronze',
         if_exists='replace',
-        index=False,         # don't write pandas row numbers as a column
-        chunksize=1000       # write 1000 rows at a time - avoids memory issues
+        index=False,            # don't write pandas row numbers as a column
+        chunksize=1000          # write 1000 rows at a time - avoids memory issues
     )
-
+    
     logger.info(f"  Done — bronze.{table_name} loaded successfully")
     return len(df)
 
